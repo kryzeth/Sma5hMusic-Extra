@@ -597,8 +597,6 @@ namespace Sma5h.Mods.Music.Services
                 if (series.Source == EntrySource.Mod)
                 {
                     series.SaveNo = 0;
-                    if (_gameTitleEntries.Values.Count(p => p.UiSeriesId == series.UiSeriesId) == 0)
-                        continue;
                 }
 
                 paramSeriesDbRoot[series.UiSeriesId] = _mapper.Map<PrcSeriesDbRootEntry>(series);
