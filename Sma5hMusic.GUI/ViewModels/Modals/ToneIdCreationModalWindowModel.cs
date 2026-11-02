@@ -250,7 +250,7 @@ namespace Sma5hMusic.GUI.ViewModels
         public void LoadToneId(string toneId)
         {
             SelectedCoreSongReplacement = null;
-            var sanitizedToneId = Regex.Replace(toneId.Replace(" ", "_"), REGEX_REPLACE, string.Empty).ToLower();
+            var sanitizedToneId = Regex.Replace(Regex.Replace(toneId.Replace(" ", "_"), REGEX_REPLACE, string.Empty), @"_+", "_").ToLowerInvariant();
             var newToneId = string.IsNullOrEmpty(sanitizedToneId) ? Guid.NewGuid().ToString("N") : sanitizedToneId;
             if (string.Equals(ToneId, newToneId, StringComparison.Ordinal))
                 ToneId = string.Empty;

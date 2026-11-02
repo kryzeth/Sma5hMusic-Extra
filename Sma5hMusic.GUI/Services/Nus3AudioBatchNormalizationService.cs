@@ -268,7 +268,7 @@ namespace Sma5hMusic.GUI.Services
 
         private static string LoadToneId(string toneId)
         {
-            var sanitizedToneId = Regex.Replace(toneId.Replace(" ", "_"), REGEX_REPLACE, string.Empty).ToLower();
+            var sanitizedToneId = Regex.Replace(Regex.Replace(toneId.Replace(" ", "_"), REGEX_REPLACE, string.Empty), @"_+", "_").ToLowerInvariant();
             return string.IsNullOrEmpty(sanitizedToneId) ? Guid.NewGuid().ToString("N") : sanitizedToneId;
         }
 
