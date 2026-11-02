@@ -24,6 +24,7 @@ namespace Sma5h.Mods.Music.Interfaces
         IEnumerable<GameTitleEntry> GetGameTitleEntries();
         IEnumerable<GameTitleEntry> GetOriginalCoreGameTitleEntries();
         IEnumerable<StageEntry> GetStagesEntries();
+        StageEntry GetOrAddStageEntry(string uiStageId);
         IEnumerable<string> GetLocales();
         IEnumerable<PlaylistEntry> GetPlaylists();
         IEnumerable<PlaylistEntry> GetOriginalCorePlaylists();

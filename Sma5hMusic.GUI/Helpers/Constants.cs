@@ -148,6 +148,7 @@ namespace Sma5hMusic.GUI.Helpers
             {"ui_stage_random_normal","(H) Random Normal"},
             {"ui_stage_random_battle_field","(H) Random Battlefield"},
             {"ui_stage_random_end","(H) Random Ω Form"},
+            {"ui_stage_photostage","Pumpkin Hill"},
             {"ui_stage_battle_field","Battlefield"},
             {"ui_stage_battle_field_l","Big Battlefield"},
             {"ui_stage_end","Final Destination"},

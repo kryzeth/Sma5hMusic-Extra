@@ -177,6 +177,19 @@ namespace Sma5h.Mods.Music.Services
             return _stageEntries.Values;
         }
 
+        public StageEntry GetOrAddStageEntry(string uiStageId)
+        {
+            if (string.IsNullOrWhiteSpace(uiStageId))
+                throw new ArgumentException("A stage ID is required.", nameof(uiStageId));
+
+            if (!_stageEntries.TryGetValue(uiStageId, out var stage))
+            {
+                stage = new StageEntry { UiStageId = uiStageId };
+                _stageEntries.Add(uiStageId, stage);
+            }
+            return stage;
+        }
+
         public IEnumerable<string> GetLocales()
         {
             return _localesEntries;

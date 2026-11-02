@@ -238,10 +238,16 @@ namespace Sma5h.Mods.Music
             if (_musicOverrideConfig.StageOverrides != null && _musicOverrideConfig.StageOverrides.Count > 0)
             {
                 _logger.LogInformation("Overriding Stage Playlists...");
-                foreach (var stageEntry in _audioStateService.GetStagesEntries())
+                foreach (var stageOverride in _musicOverrideConfig.StageOverrides)
                 {
-                    if (_musicOverrideConfig.StageOverrides.ContainsKey(stageEntry.UiStageId))
-                        _mapper.Map(_musicOverrideConfig.StageOverrides[stageEntry.UiStageId], stageEntry);
+                    if (string.IsNullOrWhiteSpace(stageOverride.Key) || stageOverride.Value == null ||
+                        stageOverride.Key != stageOverride.Value.UiStageId)
+                    {
+                        _logger.LogWarning("Ignoring invalid stage override {StageId}", stageOverride.Key);
+                        continue;
+                    }
+                    var stageEntry = _audioStateService.GetOrAddStageEntry(stageOverride.Key);
+                    _mapper.Map(stageOverride.Value, stageEntry);
                 }
             }
 
