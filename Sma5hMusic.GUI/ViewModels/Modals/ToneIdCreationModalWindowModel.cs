@@ -186,6 +186,8 @@ namespace Sma5hMusic.GUI.ViewModels
             ActionStopPreview = ReactiveCommand.CreateFromTask(StopPreview);
             ActionResetLoopDefaults = ReactiveCommand.Create(ResetLoopDefaults);
             ActionCalculateAutoLoops = ReactiveCommand.CreateFromTask(CalculateAutoLoops, canCalculateAutoLoops);
+            var canCancelAutoLoops = this.WhenAnyValue(x => x.IsCalculatingAutoLoops);
+            ActionCancelAutoLoops = ReactiveCommand.Create(CancelAutoLoopCalculation, canCancelAutoLoops);
             ActionLoadMoreAutoLoops = ReactiveCommand.Create(LoadMoreAutoLoops);
             ActionPreviewAutoLoop = ReactiveCommand.CreateFromTask<AutoLoopPoint>(PreviewAutoLoop);
 

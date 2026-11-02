@@ -22,6 +22,7 @@ namespace Sma5hMusic.GUI.ViewModels
         private List<AutoLoopPoint> _allAutoLoopPoints = new List<AutoLoopPoint>();
 
         public ReactiveCommand<Unit, Unit> ActionCalculateAutoLoops { get; }
+        public ReactiveCommand<Unit, Unit> ActionCancelAutoLoops { get; }
         public ReactiveCommand<Unit, Unit> ActionLoadMoreAutoLoops { get; }
         public ReactiveCommand<AutoLoopPoint, Unit> ActionPreviewAutoLoop { get; }
 
@@ -89,6 +90,12 @@ namespace Sma5hMusic.GUI.ViewModels
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
                 _logger.LogInformation("Automatic loop point calculation cancelled.");
+                AutoLoopStatus = "Automatic loop point calculation cancelled.";
+            }
+            catch (TimeoutException e)
+            {
+                _logger.LogWarning(e, "Automatic loop point calculation timed out.");
+                AutoLoopStatus = e.Message;
             }
             catch (FileNotFoundException e)
             {

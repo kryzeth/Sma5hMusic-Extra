@@ -113,8 +113,14 @@
           </StackPanel>
 
           <StackPanel Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <Button Content="Calculate Loop Points Automatically" Command="{Binding ActionCalculateAutoLoops}" />
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+              <Button Content="Calculate Loop Points Automatically"
+                      Command="{Binding ActionCalculateAutoLoops}" />
+              <Button Content="Cancel Calculation"
+                      Command="{Binding ActionCancelAutoLoops}"
+                      IsVisible="{Binding IsCalculatingAutoLoops}" />
             </StackPanel>
 
             <TextBlock Text="{Binding AutoLoopStatus}" HorizontalAlignment="Center" Margin="0,4,0,0" />

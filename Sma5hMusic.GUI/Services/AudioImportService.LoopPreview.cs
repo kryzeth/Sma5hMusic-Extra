@@ -16,37 +16,113 @@ namespace Sma5hMusic.GUI.Services
 {
     public partial class AudioImportService
     {
-        public async Task<IReadOnlyList<AutoLoopPoint>> CalculateAutoLoopPoints(string filename, uint sampleRate, uint totalSamples, CancellationToken cancellationToken = default)
+        
+    public async Task<IReadOnlyList<AutoLoopPoint>> CalculateAutoLoopPoints(
+        string filename,
+        uint sampleRate,
+        uint totalSamples,
+        CancellationToken cancellationToken = default)
+    {
+        const uint analysisRate = 16000;
+
+        using var timeoutSource =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        timeoutSource.CancelAfter(TimeSpan.FromMinutes(5));
+        var token = timeoutSource.Token;
+
+        try
         {
             return await Task.Run(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                _logger.LogInformation("Automatic loop point calculation requested. File={Filename}, SampleRate={SampleRate}, TotalSamples={TotalSamples}.",
-                    filename, sampleRate, totalSamples);
+                token.ThrowIfCancellationRequested();
 
-                //call pymusiclooper
-                var output = RunPymusiclooper(cancellationToken, "export-points", "--path", filename, "--fmt", "SAMPLES", "--alt-export-top", "-1");
-                cancellationToken.ThrowIfCancellationRequested();
-                var loopPoints = ParsePymusiclooperOutput(output, sampleRate, totalSamples)
-                    .ToList();
+                Directory.CreateDirectory(GetTempPath());
 
-                _logger.LogInformation("Automatic loop point calculation completed. File={Filename}, ParsedCandidates={CandidateCount}.",
-                    filename, loopPoints.Count);
+                var analysisFile = Path.Combine(
+                    GetTempPath(),
+                    $"{Guid.NewGuid():N}_autoloop16k.wav");
 
-                foreach (var loopPoint in loopPoints.Take(15))
+                var soxInputFile = CreateSoxCompatibleInputCopy(filename);
+
+                try
                 {
-                    _logger.LogInformation("Automatic loop candidate #{Rank}: Start={LoopStartSample}, End={LoopEndSample}, Score={Score}, NoteDifference={NoteDifference}, LoudnessDifference={LoudnessDifference}, StartTime={StartMinutes}:{StartSeconds}.{StartMilliseconds}, EndTime={EndMinutes}:{EndSeconds}.{EndMilliseconds}.",
-                        loopPoint.Rank, loopPoint.LoopStartSample, loopPoint.LoopEndSample, loopPoint.Score, loopPoint.NoteDifference, loopPoint.LoudnessDifference,
-                        loopPoint.LoopStartMinutes, loopPoint.LoopStartSeconds, loopPoint.LoopStartMilliseconds,
-                        loopPoint.LoopEndMinutes, loopPoint.LoopEndSeconds, loopPoint.LoopEndMilliseconds);
+                    _logger.LogInformation(
+                        "Preparing automatic loop analysis. File={File}, OriginalRate={OriginalRate}, AnalysisRate={AnalysisRate}, TotalSamples={TotalSamples}.",
+                        filename, sampleRate, analysisRate, totalSamples);
+
+                    // Use a lightweight copy for analysis only.
+                    // Never replace the original audio with this file.
+                    RunTool(
+                        token,
+                        GetSoxExe(),
+                        soxInputFile,
+                        "-r", analysisRate.ToString(CultureInfo.InvariantCulture),
+                        "-c", "1",
+                        "-b", "16",
+                        "-e", "signed-integer",
+                        analysisFile);
+
+                    token.ThrowIfCancellationRequested();
+
+                    _logger.LogInformation(
+                        "Starting PyMusicLooper on 16kHz mono audio. File={File}.",
+                        analysisFile);
+
+                    var output = RunPymusiclooper(
+                        token,
+                        "-v",
+                        "export-points",
+                        "--path", analysisFile,
+                        "--fmt", "SAMPLES",
+                        "--alt-export-top", "-1");
+
+                    token.ThrowIfCancellationRequested();
+
+                    // Convert analysis sample numbers back to the
+                    // original track's sample rate.
+                    var loopPoints = ParsePymusiclooperOutput(
+                        output,
+                        analysisRate,
+                        sampleRate,
+                        totalSamples).ToList();
+
+                    _logger.LogInformation(
+                        "Automatic loop calculation completed. File={File}, Candidates={Count}.",
+                        filename, loopPoints.Count);
+
+                    foreach (var point in loopPoints.Take(15))
+                    {
+                        _logger.LogInformation(
+                            "Automatic loop candidate #{Rank}: Start={Start}, End={End}, Score={Score}.",
+                            point.Rank,
+                            point.LoopStartSample,
+                            point.LoopEndSample,
+                            point.Score);
+                    }
+
+                    return loopPoints;
                 }
-
-                if (loopPoints.Count > 15)
-                    _logger.LogInformation("Additional automatic loop candidates omitted from log. OmittedCandidates={OmittedCandidates}.", loopPoints.Count - 15);
-
-                return loopPoints;
-            }, cancellationToken);
+                finally
+                {
+                    DeleteSoxCompatibleInputCopy(filename, soxInputFile);
+                    DeleteTempFile(analysisFile);
+                }
+            }, token);
         }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested &&
+                timeoutSource.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                "Automatic loop calculation exceeded the five-minute limit for {File}.",
+                filename);
+
+            throw new TimeoutException(
+                "Automatic loop calculation timed out after 5 minutes.");
+        }
+    }
+
         public async Task<LoopPreviewInfo> CreateLoopPreview(string filename, uint loopStartSample, uint loopEndSample, uint totalSamples)
         {
             return await Task.Run(() =>
@@ -243,13 +319,15 @@ namespace Sma5hMusic.GUI.Services
                 CreateNoWindow = true
             };
 
-            if (OperatingSystem.IsLinux())
-            {
-                //create numba cache directory in temp to avoid permission issues
-                var numbaCache = Path.Combine(Path.GetTempPath(), "Sma5hMusic", "NumbaCache");
-                Directory.CreateDirectory(numbaCache);
-                startInfo.Environment["NUMBA_CACHE_DIR"] = numbaCache;
-            }
+            var numbaCache = OperatingSystem.IsLinux()
+                ? Path.Combine(Path.GetTempPath(), "Sma5hMusic", "NumbaCache")
+                : Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Sma5hMusic",
+                    "NumbaCache");
+
+            Directory.CreateDirectory(numbaCache);
+            startInfo.Environment["NUMBA_CACHE_DIR"] = numbaCache;
 
             foreach (var argument in arguments)
                 startInfo.ArgumentList.Add(argument);
@@ -294,7 +372,11 @@ namespace Sma5hMusic.GUI.Services
             return "[Earlier command output omitted]" + Environment.NewLine + message.Substring(message.Length - maxLength);
         }
 
-        private IReadOnlyList<AutoLoopPoint> ParsePymusiclooperOutput(string output, uint sampleRate, uint totalSamples)
+        private IReadOnlyList<AutoLoopPoint> ParsePymusiclooperOutput(
+            string output,
+            uint analysisSampleRate,
+            uint sampleRate,
+            uint totalSamples)
         {
             var candidates = new List<AutoLoopPoint>();
             var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -329,12 +411,18 @@ namespace Sma5hMusic.GUI.Services
                     continue;
                 }
 
-                if (!uint.TryParse(values[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var loopStartSample) ||
-                    !uint.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var loopEndSample))
+                if (!uint.TryParse(values[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var analysisStartSample) ||
+                    !uint.TryParse(values[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var analysisEndSample))
                 {
                     skippedInvalidSampleLines++;
                     continue;
                 }
+
+                var loopStartSample = ConvertSampleRate(
+                    analysisStartSample, analysisSampleRate, sampleRate);
+
+                var loopEndSample = ConvertSampleRate(
+                    analysisEndSample, analysisSampleRate, sampleRate);
 
                 var minimumLoopLengthSamples = Math.Max(1u, sampleRate / 10);
                 if (loopEndSample == 0 || loopStartSample >= loopEndSample || loopEndSample > totalSamples || loopEndSample - loopStartSample < minimumLoopLengthSamples)
