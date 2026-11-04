@@ -212,6 +212,7 @@ namespace Sma5hMusic.GUI.ViewModels
             _logger.LogInformation("Adding {NbrFiles} files to Mod {ModPath}", inputFiles.Count, managerMod.ModPath);
             var songsRemaining = inputFiles.Count;
             bool? previousApplyNormalization = null;
+            string previousGameId = null;
             foreach (var inputFile in inputFiles)
             {
                 songsRemaining--;
@@ -321,7 +322,17 @@ namespace Sma5hMusic.GUI.ViewModels
                     if (!string.IsNullOrEmpty(uiBgmId))
                     {
                         var vmBgmDbRootEntry = _viewModelManager.GetBgmDbRootViewModel(uiBgmId);
-                        await EditBgmEntry(vmBgmDbRootEntry);
+
+                        // Preserve the original assignment for core-song replacements.
+                        var selectedGameId = await EditBgmEntry(
+                            vmBgmDbRootEntry,
+                            coreSongReplacement == null ? previousGameId : null);
+
+                        if (coreSongReplacement == null &&
+                            !string.IsNullOrEmpty(selectedGameId))
+                        {
+                            previousGameId = selectedGameId;
+                        }
                     }
                 }
 

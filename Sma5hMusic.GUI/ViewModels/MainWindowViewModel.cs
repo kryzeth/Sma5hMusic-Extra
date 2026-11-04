@@ -527,20 +527,33 @@ namespace Sma5hMusic.GUI.ViewModels
         }
 
 
-
-        public async Task EditBgmEntry(BgmDbRootEntryViewModel vmBgmEntry)
+        public async Task<string> EditBgmEntry(BgmDbRootEntryViewModel vmBgmEntry, string defaultGameId = null)
         {
-            if (vmBgmEntry != null)
-            {
-                BgmEntryViewModel result;
-                if (IsAdvanced)
-                    result = await _dialogAdvancedBgmEditor.ShowDialog(_rootDialog.Window, new BgmEntryViewModel(vmBgmEntry));
-                else
-                    result = await _dialogSimpleBgmEditor.ShowDialog(_rootDialog.Window, new BgmEntryViewModel(vmBgmEntry));
+            if (vmBgmEntry == null)
+                return null;
 
-                if (result != null)
-                    await _guiStateManager.PersistMusicModEntryChanges(result.GetMusicModEntries(), result.MusicMod);
+            var entry = new BgmEntryViewModel(vmBgmEntry);
+
+            // Preselect the previous game's ID without modifying the
+            // original entry if the user cancels the dialog.
+            if (!string.IsNullOrEmpty(defaultGameId) &&
+                _viewModelManager.GetGameTitleViewModel(defaultGameId) != null)
+            {
+                entry = (BgmEntryViewModel)entry.GetCopy();
+                entry.DbRootViewModel.UiGameTitleId = defaultGameId;
             }
+
+            var result = IsAdvanced
+                ? await _dialogAdvancedBgmEditor.ShowDialog(_rootDialog.Window, entry)
+                : await _dialogSimpleBgmEditor.ShowDialog(_rootDialog.Window, entry);
+
+            if (result == null)
+                return null;
+
+            await _guiStateManager.PersistMusicModEntryChanges(
+                result.GetMusicModEntries(), result.MusicMod);
+
+            return result.DbRootViewModel.UiGameTitleId;
         }
 
         public async Task RenameToneId(BgmDbRootEntryViewModel vmBgmEntry)
