@@ -11,6 +11,7 @@ using System.IO;
 using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Sma5hMusic.GUI.ViewModels
 {
@@ -213,12 +214,35 @@ namespace Sma5hMusic.GUI.ViewModels
             var songsRemaining = inputFiles.Count;
             bool? previousApplyNormalization = null;
             string previousGameId = null;
+            var renamedGamePrefixes = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var inputFile in inputFiles)
             {
                 songsRemaining--;
                 _vmToneIdCreation.LoadQueueStatus(songsRemaining);
                 _vmToneIdCreation.LoadSourceFilename(inputFile);
-                _vmToneIdCreation.LoadToneId(Path.GetFileNameWithoutExtension(inputFile));
+                var filename = Path.GetFileNameWithoutExtension(inputFile);
+                var separator = filename.IndexOf(" - ", StringComparison.Ordinal);
+                var originalGamePrefix = separator >= 0 ? filename.Substring(0, separator) : null;
+                string songSuffix = null;
+
+                if (separator >= 0)
+                {
+                    // Use the same normalization as LoadToneId.
+                    songSuffix = Regex.Replace(
+                        Regex.Replace(filename.Substring(separator + 3).Replace(" ", "_"),
+                            @"[^a-zA-Z0-9_]", ""),
+                        @"_+", "_").ToLowerInvariant();
+                }
+
+                _vmToneIdCreation.LoadToneId(filename);
+
+                // Apply a previously learned prefix for this game.
+                if (originalGamePrefix != null &&
+                    !string.IsNullOrEmpty(songSuffix) &&
+                    renamedGamePrefixes.TryGetValue(originalGamePrefix, out var newPrefix))
+                {
+                    _vmToneIdCreation.ToneId = $"{newPrefix}_{songSuffix}";
+                }
 
                 var requiresConversion = _audioImportService.RequiresConversion(inputFile);
                 var isNus3Audio = _audioImportService.IsNus3Audio(inputFile);
@@ -260,6 +284,18 @@ namespace Sma5hMusic.GUI.ViewModels
                 if (result != null)
                 {
                     string toneId = _vmToneIdCreation.ToneId;
+                    // Learn prefix changes only when the song title remains unchanged.
+                    if (originalGamePrefix != null && !string.IsNullOrEmpty(songSuffix))
+                    {
+                        var suffix = "_" + songSuffix;
+
+                        if (toneId.EndsWith(suffix, StringComparison.Ordinal) &&
+                            toneId.Length > suffix.Length)
+                        {
+                            renamedGamePrefixes[originalGamePrefix] =
+                                toneId.Substring(0, toneId.Length - suffix.Length);
+                        }
+                    }
                     var importFile = _vmToneIdCreation.Filename;
                     var applyNormalization = _vmToneIdCreation.ApplyNormalization;
                     if (_vmToneIdCreation.CanApplyNormalization)
