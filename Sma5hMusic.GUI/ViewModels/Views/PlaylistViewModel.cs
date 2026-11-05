@@ -204,9 +204,20 @@ namespace Sma5hMusic.GUI.ViewModels
             ActionPasteIncidenceAll = ReactiveCommand.Create<PlaylistEntryValueViewModel>((o) => PasteIncidenceValueToAllOrderIds(o, false));
 
             //Trigger behavior subjets
-            _whenStageSelected = new BehaviorSubject<StageEntryViewModel>(Stages.FirstOrDefault());
-            _whenPlaylistSelected = new BehaviorSubject<PlaylistEntryViewModel>(_playlists.FirstOrDefault());
-            _whenPlaylistOrderSelected = new BehaviorSubject<ComboItem>(_orderMenu.FirstOrDefault());
+            var initialPlaylist = _playlists.FirstOrDefault();
+            var initialOrder = _orderMenu.FirstOrDefault();
+
+            var initialStage = IsPlaylistAdvanced
+                ? (initialPlaylist != null && initialOrder != null
+                    ? _stages.FirstOrDefault(s =>
+                        s.PlaylistId == initialPlaylist.Id &&
+                        s.OrderId.ToString() == initialOrder.Id)
+                    : null)
+                : _stages.FirstOrDefault();
+
+            _whenStageSelected = new BehaviorSubject<StageEntryViewModel>(initialStage);
+            _whenPlaylistSelected = new BehaviorSubject<PlaylistEntryViewModel>(initialPlaylist);
+            _whenPlaylistOrderSelected = new BehaviorSubject<ComboItem>(initialOrder);
         }
 
         #region Drag & Drop
