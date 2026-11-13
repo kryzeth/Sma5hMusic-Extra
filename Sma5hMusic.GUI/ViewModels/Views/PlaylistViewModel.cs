@@ -375,7 +375,23 @@ namespace Sma5hMusic.GUI.ViewModels
         {
             if (order < 0)
                 order = 0;
-            var newEntries = SelectedPlaylistEntry.AddSongs(sourceObjs, SelectedPlaylistOrder, order, incidence);
+
+            // Skip songs already present in this playlist, including hidden songs.
+            // Also prevent duplicate IDs within the incoming selection.
+            var existingSongIds = new HashSet<string>(
+                SelectedPlaylistEntry.Tracks[0].Select(p => p.UiBgmId),
+                StringComparer.Ordinal
+            );
+
+            var songsToAdd = sourceObjs
+                .Where(p => existingSongIds.Add(p.UiBgmId))
+                .ToList();
+
+            // Nothing new to add.
+            if (songsToAdd.Count == 0)
+                return;
+
+            var newEntries = SelectedPlaylistEntry.AddSongs(songsToAdd, SelectedPlaylistOrder, order, incidence);
             _postReorderSelection = () =>
             {
                 _refBgmGrid.SelectedItems.Clear();
