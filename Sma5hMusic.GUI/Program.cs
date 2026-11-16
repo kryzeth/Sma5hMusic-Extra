@@ -49,6 +49,8 @@ namespace Sma5hMusic.GUI
 
         public static void ConfigureServices()
         {
+            Constants.LoadStageReplacements(GetBasePath());
+
             var services = new ServiceCollection();
 
             var configurationBuilder = new ConfigurationBuilder()

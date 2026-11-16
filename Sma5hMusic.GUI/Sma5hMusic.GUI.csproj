@@ -163,4 +163,9 @@
       <DependentUpon>MusicPlayerView.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource
+      Include="..\Resources\stage_replacements.json"
+      LogicalName="Sma5hMusic.StageReplacements" />
+  </ItemGroup>
 </Project>

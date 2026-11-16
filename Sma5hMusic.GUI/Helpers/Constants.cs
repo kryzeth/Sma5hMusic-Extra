@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.IO;
+using System.Text.Json;
+using System.Collections.Generic;
 
 using System.Linq;
 using System.Reflection;
@@ -284,6 +287,60 @@ namespace Sma5hMusic.GUI.Helpers
             {"ui_stage_battle_field_s", "Small Battlefield"}
         };
 
+        private static readonly Dictionary<string, string> STAGE_REPLACEMENTS =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        public static void LoadStageReplacements(string basePath)
+        {
+            STAGE_REPLACEMENTS.Clear();
+
+            var resourcesPath = Path.Combine(basePath, "Resources");
+            var mappingPath = Path.Combine(resourcesPath, "stage_replacements.json");
+
+            try
+            {
+                Directory.CreateDirectory(resourcesPath);
+
+                // Create the external JSON from the embedded default if missing.
+                if (!File.Exists(mappingPath))
+                {
+                    using var template = typeof(Constants).Assembly
+                        .GetManifestResourceStream("Sma5hMusic.StageReplacements");
+
+                    if (template == null)
+                    {
+                        File.WriteAllText(mappingPath, "{}");
+                    }
+                    else
+                    {
+                        using var output = File.Create(mappingPath);
+                        template.CopyTo(output);
+                    }
+                }
+
+                var mappings = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    File.ReadAllText(mappingPath));
+
+                if (mappings == null)
+                    return;
+
+                foreach (var entry in mappings)
+                {
+                    if (string.IsNullOrWhiteSpace(entry.Key) ||
+                        string.IsNullOrWhiteSpace(entry.Value))
+                        continue;
+
+                    STAGE_REPLACEMENTS[entry.Key.Trim()] = entry.Value.Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                STAGE_REPLACEMENTS.Clear();
+                Console.Error.WriteLine(
+                    $"Failed to load stage replacements from {mappingPath}: {ex}");
+            }
+        }
+
         public static string GetSeriesDisplayName(string key)
         {
             if (string.IsNullOrEmpty(key))
@@ -298,11 +355,30 @@ namespace Sma5hMusic.GUI.Helpers
             return CONVERTER_RECORD_TYPE.ContainsKey(key) ? CONVERTER_RECORD_TYPE[key] : key;
         }
 
-        public static string GetStageDisplayName(string key)
+        public static string GetOriginalStageDisplayName(string key)
         {
             if (string.IsNullOrEmpty(key))
                 return key;
-            return CONVERTER_CORE_STAGES.ContainsKey(key) ? CONVERTER_CORE_STAGES[key] : key;
+
+            return CONVERTER_CORE_STAGES.TryGetValue(key, out var original)
+                ? original
+                : key;
+        }
+
+        public static string GetStageDisplayName(string key)
+        {
+            var original = GetOriginalStageDisplayName(key);
+
+            if (string.IsNullOrEmpty(key) ||
+                !STAGE_REPLACEMENTS.TryGetValue(key, out var replacement))
+                return original;
+
+            // Hide the internal (H) prefix in remapped display names.
+            var cleanOriginal = original.StartsWith("(H) ", StringComparison.Ordinal)
+                ? original.Substring(4)
+                : original;
+
+            return $"{cleanOriginal} - {replacement}";
         }
 
         public static string GetBgmPlaylistName(string key)

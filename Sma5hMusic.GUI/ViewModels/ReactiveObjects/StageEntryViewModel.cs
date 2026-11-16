@@ -12,9 +12,11 @@ namespace Sma5hMusic.GUI.ViewModels
 
         public string UiStageId { get { return _refStageEntry.UiStageId; } }
 
+        public string OriginalTitle { get { return Constants.GetOriginalStageDisplayName(UiStageId); } }
+
         public string Title { get { return Constants.GetStageDisplayName(UiStageId); } }
 
-        public string TitleHidden { get { var name = Title; return name.StartsWith("(H)") ? name : ""; } }
+        public string TitleHidden{ get { var name = OriginalTitle; return name?.StartsWith("(H)") == true ? name : ""; } }
 
         [Reactive]
         public string PlaylistId { get; set; }
@@ -28,7 +30,7 @@ namespace Sma5hMusic.GUI.ViewModels
         [Reactive]
         public sbyte DispOrder { get; set; }
 
-        public bool Hidden { get { return DispOrder == -1 || Title.StartsWith("(H)"); } }
+        public bool Hidden { get { return DispOrder == -1 || OriginalTitle?.StartsWith("(H)") == true; } }
 
         public StageEntryViewModel() { }
 
